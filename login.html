@@ -46,6 +46,9 @@
   </div>
 
   <script>
+    // Backend base URL for Amplify frontend
+    const API_BASE = 'https://test-webiste-for-3444.onrender.com';
+
     const loginForm = document.getElementById('loginForm');
     const loginAlert = document.getElementById('loginAlert');
 
@@ -58,9 +61,10 @@
       const password = document.getElementById('loginPassword').value;
 
       try {
-        const res = await fetch('/login', {
+        const res = await fetch(`${API_BASE}/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ email, password })
         });
 

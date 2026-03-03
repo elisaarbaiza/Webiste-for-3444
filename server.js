@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
+const cors = require('cors');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
@@ -13,6 +14,24 @@ const server = http.createServer(app);
 // Parse JSON and form-encoded bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// CORS to allow frontend from Amplify/localhost to call this backend
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://main.d3b9nx7tb3jlu.amplifyapp.com',
+];
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+    credentials: true,
+  })
+);
 
 // Simple in-memory "database" for demo purposes
 // In a real app, replace this with a real database.
@@ -34,6 +53,11 @@ app.use(
     secret: 'change-this-secret',
     resave: false,
     saveUninitialized: false,
+    cookie: {
+      // Allow cross-site cookies when served over HTTPS (for Amplify + backend on Render)
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    },
   })
 );
 

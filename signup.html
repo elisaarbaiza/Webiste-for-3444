@@ -49,6 +49,9 @@
   </div>
 
   <script>
+    // Backend base URL for Amplify frontend
+    const API_BASE = 'https://test-webiste-for-3444.onrender.com';
+
     const signupForm = document.getElementById('signupForm');
     const signupAlert = document.getElementById('signupAlert');
 
@@ -68,9 +71,10 @@
       }
 
       try {
-        const res = await fetch('/signup', {
+        const res = await fetch(`${API_BASE}/signup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ email, password })
         });
 
@@ -81,10 +85,10 @@
           signupAlert.textContent = data.error || 'Signup failed.';
         } else {
           signupAlert.className = 'alert alert-success';
-          signupAlert.textContent = 'Account created. You can now log in.';
+          signupAlert.textContent = 'Account created. Check your UNT email to verify, then log in.';
           setTimeout(() => {
             window.location.href = 'login.html';
-          }, 1000);
+          }, 1200);
         }
       } catch (err) {
         signupAlert.className = 'alert alert-danger';
