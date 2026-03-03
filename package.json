@@ -7,8 +7,9 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "express": "latest",
+    "express-session": "^1.19.0",
     "socket.io": "latest"
   }
 }
-
