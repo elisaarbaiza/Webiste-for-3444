@@ -5,7 +5,14 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// Allow Socket.IO connections from your Amplify site
+const io = new Server(server, {
+  cors: {
+    origin: 'https://main.d3b9nx7tb3jlu.amplifyapp.com',
+    methods: ['GET', 'POST']
+  }
+});
 
 // Serve all static files (HTML, CSS, JS, images) from this folder
 app.use(express.static(__dirname));

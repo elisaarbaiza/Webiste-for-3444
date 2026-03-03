@@ -160,11 +160,12 @@
     </div>
   </div>
 
-  <!-- Socket.IO client (served by Node server) -->
-  <script src="/socket.io/socket.io.js"></script>
+  <!-- Socket.IO client loaded from Render backend -->
+  <script src="https://eagld-chat.onrender.com/socket.io/socket.io.js"></script>
 
   <script>
-    const socket = io(); // connects back to the Node.js server
+    // Connect to the Socket.IO server running on Render
+    const socket = io('https://eagld-chat.onrender.com');
 
     const nameForm = document.getElementById('nameForm');
     const usernameInput = document.getElementById('usernameInput');
