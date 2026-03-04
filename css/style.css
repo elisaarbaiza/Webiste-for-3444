@@ -715,3 +715,40 @@ textarea {
   width: 24px;
   height: 24px;
 }
+
+/* Favorites page */
+.favorite-item {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.favorite-heart {
+  color: #e63946;
+  font-size: 20px;
+}
+
+.favorite-heart .fa-heart {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.favorite-heart:hover .fa-heart {
+  transform: scale(1.1);
+  opacity: 0.85;
+}
+
+.favorite-image-wrap {
+  max-width: 120px;
+}
+
+.favorite-image {
+  border-radius: 10px;
+}
+
+.favorite-title {
+  font-weight: 600;
+}
+
+.favorite-share a.favorite-share-link {
+  word-break: break-all;
+}
