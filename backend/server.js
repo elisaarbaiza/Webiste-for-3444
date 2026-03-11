@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 //test route
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
     res.send('Eagld backend is running');
 });
 
@@ -20,6 +20,12 @@ pool.query('SELECT NOW()', (err, res) => {
     console.log('Database connected at:', res.rows[0].now);
   }
 });
+
+const productRoutes = require('./routes/productRoutes');
+app.use('/products', productRoutes);
+
+const cartRoutes = require('./routes/cartRoutes');
+app.use('/cart', cartRoutes);
 
 const PORT = 5000;
 app.listen(PORT, () => {
