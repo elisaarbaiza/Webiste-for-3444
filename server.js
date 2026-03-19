@@ -105,11 +105,19 @@ if (process.env.SKIP_AUTH_FOR_DEV === 'true') {
 }
 
 // Email transport for verification emails (configure via env vars)
+// Uses Amazon SES SMTP. You should set these env vars on Render:
+// - EMAIL_USER: the verified "from" email identity in SES
+// - SES_SMTP_USERNAME: SMTP username from SES
+// - SES_SMTP_PASSWORD: SMTP password from SES
+// - SES_REGION: SES region (defaults to us-west-2 / Oregon)
+const sesRegion = process.env.SES_REGION || 'us-west-2';
 const transporter = nodemailer.createTransport({
-  service: 'gmail', // or your SMTP provider
+  host: `email-smtp.${sesRegion}.amazonaws.com`,
+  port: 587,
+  secure: false,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: process.env.SES_SMTP_USERNAME,
+    pass: process.env.SES_SMTP_PASSWORD,
   },
 });
 
@@ -209,20 +217,11 @@ app.post('/signup', async (req, res) => {
     });
   } catch (err) {
     console.error('Error sending verification email:', err);
-    // On local dev, surface the error so you can debug.
-    if (process.env.NODE_ENV !== 'production') {
-      return res.status(500).json({ error: 'Could not send verification email.' });
-    }
-    // On the deployed demo (Render), don't block signup if email can't be sent.
-    // Mark the email as verified so users can still log in.
-    user.emailVerified = true;
+    return res.status(500).json({ error: 'Could not send verification email.' });
   }
 
   res.json({
-    message:
-      process.env.NODE_ENV === 'production'
-        ? 'Signup successful. (Email verification skipped on the live site due to email issues.)'
-        : 'Signup successful. Check your UNT email for a verification link.',
+    message: 'Signup successful. Check your UNT email for a verification link.',
   });
 });
 
