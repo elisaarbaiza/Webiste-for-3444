@@ -13,9 +13,13 @@ const app = express();
 const server = http.createServer(app);
 
 // Postgres connection pool (for future persistence)
+// Use DATABASE_SSL=true when connecting locally to hosted databases like Render Postgres.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl:
+    process.env.DATABASE_SSL === 'true' || process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: false }
+      : false,
 });
 
 async function initDb() {

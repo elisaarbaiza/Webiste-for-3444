@@ -85,7 +85,7 @@
           signupAlert.textContent = data.error || 'Signup failed.';
         } else {
           signupAlert.className = 'alert alert-success';
-          signupAlert.textContent = 'Account created. Check your UNT email to verify, then log in.';
+          signupAlert.textContent = data.message || 'Account created successfully.';
           setTimeout(() => {
             window.location.href = 'login.html';
           }, 1200);
