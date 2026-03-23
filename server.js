@@ -469,16 +469,27 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const SKIP_DB_FOR_DEV = process.env.SKIP_DB_FOR_DEV === 'true';
 
-// Initialize database (tables) then start server
-initDb()
-  .then(() => {
-    server.listen(PORT, () => {
-      console.log(`Chat server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Failed to initialize database:', err);
-    process.exit(1);
+function startServer() {
+  server.listen(PORT, () => {
+    console.log(`Chat server running on port ${PORT}`);
   });
+}
+
+// Initialize database (tables) then start server.
+// In local UI-only development, you can bypass DB startup with SKIP_DB_FOR_DEV=true.
+if (SKIP_DB_FOR_DEV) {
+  console.warn('Starting without database initialization (SKIP_DB_FOR_DEV=true).');
+  startServer();
+} else {
+  initDb()
+    .then(() => {
+      startServer();
+    })
+    .catch((err) => {
+      console.error('Failed to initialize database:', err);
+      process.exit(1);
+    });
+}
 
