@@ -336,29 +336,6 @@ a {
 }
 
 
-// Why Choose us section
-.why-choose-section {
-	padding: 7rem 0;
-
-	.img-wrap {
-		position: relative;
-		&:before {
-			position: absolute;
-			content: "";
-			width: 255px;
-			height: 217px;
-			background-image: url('../images/dots-yellow.svg');
-			background-repeat: no-repeat;
-			background-size: contain;
-			transform: translate(-40%, -40%);
-			z-index: -1;
-		}
-		img {
-			border-radius: 20px;
-		}
-	}
-}
-
 .feature {
 	margin-bottom: 30px;
 	.icon {
@@ -391,22 +368,6 @@ a {
 
 .we-help-section {
 	padding: 7rem 0;
-
-	.imgs-grid {
-		display: grid;
-		grid-template-columns: repeat(27, 1fr);
-		position: relative;
-		&:before {
-			position: absolute;
-			content: "";
-			width: 255px;
-			height: 217px;
-			background-image: url('../images/dots-green.svg');
-			background-size: contain;
-			background-repeat: no-repeat;
-			transform: translate(-40%, -40%);
-			z-index: -1;
-		}
 		.grid {
 			position: relative;
 			img {
@@ -603,7 +564,7 @@ a {
 	}
 }
 
-// Blog Section
+/* Blog Section
 .before-footer-section {
 	padding: 7rem 0 12rem 0!important;
 }
@@ -646,6 +607,7 @@ a {
 		}
 	}
 }
+*/
 
 // Footer Section
 .footer-section {
@@ -701,16 +663,6 @@ a {
 		}
 		.btn {
 			border-radius: 10px!important;
-		}
-	}
-
-	.sofa-img {
-		position: absolute;
-		top: -200px;
-		z-index: 1;
-		right: 0;
-		img {
-			max-width: 380px;
 		}
 	}
 
