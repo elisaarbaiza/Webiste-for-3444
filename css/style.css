@@ -127,7 +127,7 @@ a {
       @media (min-width: 768px) {
         .hero .hero-img-wrap img {
           right: 0px;
-          left: -100px; } }
+          left: 0px; } }
       @media (min-width: 992px) {
         .hero .hero-img-wrap img {
           left: 0px;
@@ -136,9 +136,9 @@ a {
           right: -50px; } }
       @media (min-width: 1200px) {
         .hero .hero-img-wrap img {
-          left: 0px;
-          top: -80px;
-          right: -100px; } }
+          left: 360px;
+          top: -20px;
+          right: 0px; } }
     .hero .hero-img-wrap:after {
       content: "";
       position: absolute;
