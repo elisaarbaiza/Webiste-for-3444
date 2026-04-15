@@ -83,6 +83,19 @@ async function initDb() {
     );
   `);
 
+  // Backward-compatible migration: older DBs may still have seller_id as INTEGER
+  // with an FK to users(id). Firebase user IDs are strings, so we remove legacy FKs
+  // and store seller_id as TEXT.
+  await pool.query(`
+    ALTER TABLE products
+    DROP CONSTRAINT IF EXISTS products_seller_id_fkey;
+  `);
+  await pool.query(`
+    ALTER TABLE products
+    ALTER COLUMN seller_id TYPE TEXT
+    USING seller_id::TEXT;
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS cart_items (
       id SERIAL PRIMARY KEY,
