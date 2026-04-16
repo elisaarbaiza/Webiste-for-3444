@@ -4,7 +4,7 @@ https://main.d3b9nx7tb3jlu.amplifyapp.com/main.html
 
 
 ## HOW TO RUN ON MAC
-1. On one terminal, type NPM START
+1. On one terminal, type npm start
 2. On another terminal, make sure you are in the "frontend/react-frontend" folder, type npm web dev
 
 ## MAC TROUBLESHOOT
