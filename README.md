@@ -1,6 +1,28 @@
 # Test-Webiste-for-3444
 https://main.d3b9nx7tb3jlu.amplifyapp.com/main.html
 
+
+
+## HOW TO RUN ON MAC
+1. On one terminal, type npm start
+2. On another terminal, make sure you are in the "frontend/react-frontend" folder, type npm run dev
+
+## MAC TROUBLESHOOT
+MAKE SURE AIRPLAY IS TURNED OFF ON SETTINGS
+When running Postgres, if you get error saying port 5432 is already running:
+1. In VScode, type sudo lsof -i :5432
+2. Then type sudo pkill -u postgres 
+3. Attempt to run Postgres again
+4. Now type the commands show under "HOW TO RUN ON MAC"
+
+## Another fix for MAC error:
+In the ".env" file, ensure that it only has the following:
+1. PORT=5000
+2. DATABASE_URL=postgresql://[USERNAME]:[PASSWORD]@localhost:5432/[DATABASE_NAME]
+3. DATABASE_SSL=false
+
+
+
 ## How to Run the Project Locally
 
 This project consists of a Node.js backend and a React (Vite) frontend. You will also need PostgreSQL installed locally for the database.

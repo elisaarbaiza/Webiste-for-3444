@@ -146,7 +146,12 @@ function Product() {
                     Add to Cart
                   </button>
                 )}
-                <button className="btn btn-outline-secondary mt-4 ms-2">Contact Seller</button>
+                <Link
+                  to={`/messages?sellerId=${item.seller_id}`}
+                  className="btn btn-outline-secondary mt-4 ms-2"
+                >
+                  Contact Seller
+                </Link>
                 {user && (
                   <button className={`btn ${isFavorite ? 'btn-success' : 'btn-outline-success'} mt-4 ms-2`} onClick={handleFavoriteToggle} disabled={favoriteLoading}>
                     <i className="fa-solid fa-heart me-2" aria-hidden="true"></i>
