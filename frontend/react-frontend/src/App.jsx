@@ -14,6 +14,7 @@ import Search from './assets/pages/search.jsx';
 import Login from './assets/pages/login.jsx';
 import Signup from './assets/pages/signup.jsx';
 import Profile from './assets/pages/profile.jsx';
+import Cart from './assets/pages/cart.jsx';
 
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/cart" element={<Cart />} />
 
 
         {/* <Route path="/about" element={<About />} />
