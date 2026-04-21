@@ -161,6 +161,28 @@ async function initDb() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chat_conversations (
+      id SERIAL PRIMARY KEY,
+      user_one_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      user_two_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      CHECK (user_one_id <> user_two_id),
+      UNIQUE (user_one_id, user_two_id)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id UUID PRIMARY KEY,
+      conversation_id INTEGER NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
+      sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      text TEXT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
 }
 
 const cartRoutes = require('./routes/cartRoutes');
@@ -240,7 +262,7 @@ async function getUserByUsername(username) {
 async function getItems(category, sort, search) {
   let query = `SELECT i.*, COALESCE(NULLIF(u.username, ''), SPLIT_PART(u.email, '@', 1), 'user-' || u.id::TEXT) AS seller_username FROM items i JOIN users u ON u.id = i.seller_id`;
   const values = [];
-  const conditions = [];
+  const conditions = [`i.is_sold = FALSE`];
 
   if (category) {
     values.push(category);
@@ -384,62 +406,101 @@ const io = new Server(server, {
 });
 io.engine.use(sessionMiddleware);
 
-// In-memory conversation store (per pair of users)
-// NOTE: This is not permanent storage; data is lost if the server restarts.
-// conversations: Map<conversationId, { id, participants: [userA, userB], messages: [{ sender, text, createdAt }] }>
-const conversations = new Map();
-
 function getConversationId(userA, userB) {
-  const a = String(userA || "").trim().toLowerCase();
-  const b = String(userB || "").trim().toLowerCase();
-  if (!a || !b) return null;
-  const sorted = [a, b].sort();
-  return `${sorted[0]}::${sorted[1]}`;
+  const a = Number(userA);
+  const b = Number(userB);
+  if (!Number.isInteger(a) || !Number.isInteger(b) || a === b) {
+    return null;
+  }
+  return a < b ? [a, b] : [b, a];
 }
 
-function ensureConversation(currentUser, otherUser) {
-  const id = getConversationId(currentUser, otherUser);
-  if (!id) return null;
-  if (!conversations.has(id)) {
-    conversations.set(id, {
-      id,
-      participants: [currentUser, otherUser],
-      messages: [],
-    });
+async function getOrCreateConversation(currentUser, otherUser) {
+  const ordered = getConversationId(currentUser, otherUser);
+  if (!ordered) return null;
+  const [userOneId, userTwoId] = ordered;
+
+  const result = await pool.query(
+    `INSERT INTO chat_conversations (user_one_id, user_two_id)
+     VALUES ($1, $2)
+     ON CONFLICT (user_one_id, user_two_id)
+     DO UPDATE SET user_one_id = EXCLUDED.user_one_id
+     RETURNING id, user_one_id, user_two_id`,
+    [userOneId, userTwoId]
+  );
+  return result.rows[0] || null;
+}
+
+async function getConversationMessages(conversationId) {
+  const result = await pool.query(
+    `SELECT id, sender_id, receiver_id, text, created_at
+     FROM chat_messages
+     WHERE conversation_id = $1
+     ORDER BY created_at ASC`,
+    [conversationId]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    senderId: row.sender_id,
+    receiverId: row.receiver_id,
+    text: row.text,
+    createdAt: new Date(row.created_at).getTime(),
+  }));
+}
+
+async function createChatMessage(conversationId, senderId, receiverId, text) {
+  const trimmedText = String(text || "").trim();
+  if (!trimmedText) {
+    return null;
   }
-  return conversations.get(id);
+
+  const messageId = crypto.randomUUID();
+  const result = await pool.query(
+    `INSERT INTO chat_messages (id, conversation_id, sender_id, receiver_id, text)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, sender_id, receiver_id, text, created_at`,
+    [messageId, conversationId, senderId, receiverId, trimmedText]
+  );
+
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    senderId: row.sender_id,
+    receiverId: row.receiver_id,
+    text: row.text,
+    createdAt: new Date(row.created_at).getTime(),
+  };
 }
 
 async function listChatContactsForUser(userId) {
-  const contactIds = new Set();
-  for (const convo of conversations.values()) {
-    const participants = (convo.participants || []).map((value) => Number(value));
-    if (!participants.includes(userId)) continue;
-    const otherId = participants.find((id) => id !== userId);
-    if (Number.isInteger(otherId)) {
-      contactIds.add(otherId);
-    }
-  }
-
-  if (contactIds.size === 0) {
-    return [];
-  }
-
-  const ids = [...contactIds];
   const result = await pool.query(
     `SELECT
        u.id,
        u.email,
        u.username,
        u.bio,
+       lm.text AS last_message,
+       lm.created_at AS last_message_at,
        CASE
          WHEN EXISTS (SELECT 1 FROM items i WHERE i.seller_id = u.id) THEN 'seller'
          ELSE 'buyer'
        END AS role
-     FROM users u
-     WHERE u.id = ANY($1::int[])
+     FROM chat_conversations c
+     JOIN users u ON u.id = CASE
+       WHEN c.user_one_id = $1 THEN c.user_two_id
+       ELSE c.user_one_id
+     END
+     LEFT JOIN LATERAL (
+       SELECT cm.text, cm.created_at
+       FROM chat_messages cm
+       WHERE cm.conversation_id = c.id
+       ORDER BY cm.created_at DESC
+       LIMIT 1
+     ) lm ON TRUE
+     WHERE c.user_one_id = $1 OR c.user_two_id = $1
      ORDER BY COALESCE(NULLIF(u.username, ''), SPLIT_PART(u.email, '@', 1)) ASC`,
-    [ids]
+    [userId]
   );
   return result.rows;
 }
@@ -637,10 +698,6 @@ app.get("/api/chat/contacts", requireLogin, async (req, res) => {
   try {
     const contacts = await listChatContactsForUser(req.user.id);
     const mapped = contacts.map((contact) => {
-      const convoId = getConversationId(req.user.id, contact.id);
-      const convo = conversations.get(convoId);
-      const lastMessage = convo?.messages?.[convo.messages.length - 1] || null;
-
       return {
         id: contact.id,
         email: contact.email,
@@ -648,8 +705,8 @@ app.get("/api/chat/contacts", requireLogin, async (req, res) => {
         name: contact.username || String(contact.email || "").split("@")[0] || `user-${contact.id}`,
         role: contact.role || "buyer",
         bio: contact.bio,
-        lastMessage: lastMessage?.text || "",
-        lastMessageAt: lastMessage?.createdAt || null,
+        lastMessage: contact.last_message || "",
+        lastMessageAt: contact.last_message_at || null,
       };
     });
 
@@ -672,14 +729,15 @@ app.get("/api/chat/conversations/:otherUserId", requireLogin, async (req, res) =
     return res.status(400).json({ error: "Cannot open a conversation with yourself." });
   }
 
-  const convo = ensureConversation(req.user.id, otherId);
+  const convo = await getOrCreateConversation(req.user.id, otherId);
   if (!convo) {
     return res.status(400).json({ error: "Invalid conversation." });
   }
 
+  const messages = await getConversationMessages(convo.id);
   res.json({
     conversationId: convo.id,
-    messages: convo.messages,
+    messages,
   });
 });
 
@@ -700,7 +758,7 @@ app.post("/api/chat/open/:otherUserId", requireLogin, async (req, res) => {
     return res.status(404).json({ error: "Seller not found." });
   }
 
-  const convo = ensureConversation(req.user.id, otherId);
+  const convo = await getOrCreateConversation(req.user.id, otherId);
   if (!convo) {
     return res.status(400).json({ error: "Invalid conversation." });
   }
@@ -723,7 +781,7 @@ app.post("/api/chat/open/:otherUserId", requireLogin, async (req, res) => {
       role: roleResult.rows[0]?.role || "buyer",
       bio: otherUser.bio || null,
     },
-    messages: convo.messages,
+    messages: await getConversationMessages(convo.id),
   });
 });
 
@@ -1001,6 +1059,116 @@ app.delete("/api/cart/:id", requireLogin, async (req, res) => {
   }
 });
 
+app.post("/api/checkout", requireLogin, async (req, res) => {
+  const {
+    firstName,
+    lastName,
+    email,
+    phone,
+    meetupLocation,
+    meetupLocationLabel,
+    meetupDate,
+    meetupTime,
+    orderNotes,
+    paymentMethod,
+    paymentMethodLabel,
+  } = req.body || {};
+
+  if (!firstName || !lastName || !email || !phone || !meetupLocation || !meetupDate || !meetupTime || !paymentMethod) {
+    return res.status(400).json({ error: "Missing required checkout details." });
+  }
+
+  const buyerDisplay = req.user.username || String(req.user.email || "").split("@")[0] || `user-${req.user.id}`;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const cartResult = await client.query(
+      `SELECT
+         c.id AS cart_id,
+         c.item_id,
+         c.quantity,
+         i.title,
+         i.price,
+         i.seller_id,
+         i.is_sold,
+         COALESCE(NULLIF(s.username, ''), SPLIT_PART(s.email, '@', 1), 'user-' || s.id::TEXT) AS seller_name
+       FROM cart c
+       JOIN items i ON i.id = c.item_id
+       JOIN users s ON s.id = i.seller_id
+       WHERE c.user_id = $1
+       FOR UPDATE`,
+      [req.user.id]
+    );
+
+    if (cartResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Your cart is empty." });
+    }
+
+    const purchasedRows = cartResult.rows.filter((row) => !row.is_sold);
+    if (purchasedRows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "All items in your cart are already sold." });
+    }
+
+    for (const row of purchasedRows) {
+      await client.query(
+        `UPDATE items
+         SET is_sold = TRUE
+         WHERE id = $1`,
+        [row.item_id]
+      );
+
+      const conversation = await client.query(
+        `INSERT INTO chat_conversations (user_one_id, user_two_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_one_id, user_two_id)
+         DO UPDATE SET user_one_id = EXCLUDED.user_one_id
+         RETURNING id`,
+        row.seller_id < req.user.id ? [row.seller_id, req.user.id] : [req.user.id, row.seller_id]
+      );
+
+      const detailsMessage = [
+        `Purchase request for "${row.title}" (x${row.quantity})`,
+        `Buyer: ${firstName} ${lastName} (${buyerDisplay})`,
+        `Buyer email: ${email}`,
+        `Buyer phone: ${phone}`,
+        `Meetup location: ${meetupLocationLabel || meetupLocation}`,
+        `Meetup date/time: ${meetupDate} at ${meetupTime}`,
+        `Payment method: ${paymentMethodLabel || paymentMethod}`,
+        `Order notes: ${String(orderNotes || "").trim() || "None"}`,
+        `Total for this item: $${(Number(row.price) * Number(row.quantity)).toFixed(2)}`,
+      ].join("\n");
+
+      await client.query(
+        `INSERT INTO chat_messages (id, conversation_id, sender_id, receiver_id, text)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [crypto.randomUUID(), conversation.rows[0].id, req.user.id, row.seller_id, detailsMessage]
+      );
+    }
+
+    await client.query(
+      `DELETE FROM cart
+       WHERE user_id = $1
+         AND item_id = ANY($2::int[])`,
+      [req.user.id, purchasedRows.map((row) => row.item_id)]
+    );
+
+    await client.query("COMMIT");
+    return res.json({
+      message: "Order placed successfully.",
+      purchasedCount: purchasedRows.length,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Error during checkout:", err);
+    return res.status(500).json({ error: "Failed to complete checkout." });
+  } finally {
+    client.release();
+  }
+});
+
 // Add an item to favorites
 app.post("/api/favorites/:itemId", requireLogin, async (req, res) => {
   try {
@@ -1087,47 +1255,54 @@ io.on("connection", (socket) => {
   socket.join(`user:${currentUserId}`);
 
   socket.on("join conversation", (payload) => {
-    const { otherUserId } = payload || {};
-    const otherUser = Number(otherUserId);
-    const convo = ensureConversation(currentUserId, otherUser);
-    if (!convo) {
-      return;
-    }
+    (async () => {
+      try {
+        const { otherUserId } = payload || {};
+        const otherUser = Number(otherUserId);
+        const convo = await getOrCreateConversation(currentUserId, otherUser);
+        if (!convo) {
+          return;
+        }
 
-    socket.join(convo.id);
-    socket.data.currentUser = currentUserId;
-    socket.data.currentConversationId = convo.id;
+        const roomId = `conversation:${convo.id}`;
+        socket.join(roomId);
+        socket.data.currentUser = currentUserId;
+        socket.data.currentConversationId = convo.id;
 
-    socket.emit("conversation joined", {
-      conversationId: convo.id,
-      otherUserId: otherUser,
-      messages: convo.messages,
-    });
+        socket.emit("conversation joined", {
+          conversationId: convo.id,
+          otherUserId: otherUser,
+          messages: await getConversationMessages(convo.id),
+        });
+      } catch (err) {
+        console.error("Error joining conversation:", err);
+        socket.emit("chat error", { message: "Failed to join conversation." });
+      }
+    })();
   });
 
   socket.on("chat message", (data) => {
-    const { otherUserId, text } = data || {};
-    const otherUser = Number(otherUserId);
-    if (!text || !Number.isInteger(otherUser)) return;
+    (async () => {
+      try {
+        const { otherUserId, text } = data || {};
+        const otherUser = Number(otherUserId);
+        if (!text || !Number.isInteger(otherUser)) return;
 
-    const convo = ensureConversation(currentUserId, otherUser);
-    if (!convo) return;
+        const convo = await getOrCreateConversation(currentUserId, otherUser);
+        if (!convo) return;
 
-    const message = {
-      id: crypto.randomUUID(),
-      senderId: currentUserId,
-      receiverId: otherUser,
-      text: String(text).trim(),
-      createdAt: Date.now(),
-    };
+        const message = await createChatMessage(convo.id, currentUserId, otherUser, text);
+        if (!message) return;
 
-    if (!message.text) return;
-    convo.messages.push(message);
-
-    io.to(convo.id).emit("chat message", {
-      conversationId: convo.id,
-      message,
-    });
+        io.to(`conversation:${convo.id}`).emit("chat message", {
+          conversationId: convo.id,
+          message,
+        });
+      } catch (err) {
+        console.error("Error sending message:", err);
+        socket.emit("chat error", { message: "Failed to send message." });
+      }
+    })();
   });
 
   socket.on("disconnect", () => {
