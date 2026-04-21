@@ -89,14 +89,14 @@ function Favorites() {
     setError(null);
 
     try {
-      const res = await fetch("/cart", {
+      const res = await fetch("/api/cart", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
-          user_id: user.id,
-          product_id: productId,
+          item_id: productId,
           quantity: 1,
         }),
       });
