@@ -73,6 +73,16 @@ function Home() {
 						</Link>
 					</div>
 
+					<div class="col-12 col-md-4 col-lg-3 mb-5 mb-md-0">
+						<Link class="product-item" to="/shop?category=Other">
+							<img src="other1.png" class="img-fluid product-thumbnail"/>
+							<h3 class="product-title">Other</h3>
+							<span class="icon-cross">
+								<img src="cross.svg" class="img-fluid"/>
+							</span>
+						</Link>
+					</div>
+
 				</div>
 			</div>
 		</div>
