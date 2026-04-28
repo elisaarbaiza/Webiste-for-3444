@@ -79,6 +79,18 @@
 .chat-contact-name {
   color: #19222e;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-unread-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #dc3545;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .chat-preview {

@@ -94,6 +94,13 @@ function Messages() {
         setMessages(data.messages || []);
         setActiveConversationId(data.conversationId || "");
         activeConversationIdRef.current = data.conversationId || "";
+        setContacts((prev) =>
+          prev.map((contact) =>
+            Number(contact.id) === Number(activeContactId)
+              ? { ...contact, unreadCount: 0 }
+              : contact
+          )
+        );
       } catch (err) {
         setError(err.message || "Failed to load conversation.");
       }
@@ -131,6 +138,24 @@ function Messages() {
     if (!activeContactId || !socket.connected) return;
     socket.emit("join conversation", { otherUserId: activeContactId });
   }, [activeContactId, socket]);
+
+  useEffect(() => {
+    if (!currentUser) return undefined;
+
+    const refreshContacts = async () => {
+      try {
+        const contactsRes = await fetch(`${API_BASE}/api/chat/contacts`, { credentials: "include" });
+        if (!contactsRes.ok) return;
+        const latestContacts = await contactsRes.json();
+        setContacts(latestContacts);
+      } catch (_err) {
+        // Keep existing contacts if refresh fails.
+      }
+    };
+
+    const intervalId = window.setInterval(refreshContacts, 15000);
+    return () => window.clearInterval(intervalId);
+  }, [currentUser]);
 
   const sendMessage = () => {
     if (!activeContact || !draft.trim() || !socket.connected) return;
@@ -210,7 +235,12 @@ function Messages() {
                   onClick={() => setActiveContactId(contact.id)}
                 >
                   <div className="chat-contact-name-row">
-                    <span className="chat-contact-name">{contact.name}</span>
+                    <span className="chat-contact-name">
+                      {contact.name}
+                      {Number(contact.unreadCount || 0) > 0 ? (
+                        <span className="chat-unread-dot" aria-label={`${contact.unreadCount} unread messages`}></span>
+                      ) : null}
+                    </span>
                     <span className={`chat-role ${contact.role || "buyer"}`}>{contact.role || "buyer"}</span>
                   </div>
                   <span className="chat-preview">{contact.lastMessage || "No messages yet"}</span>

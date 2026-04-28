@@ -57,6 +57,7 @@ function Shop() {
             <option value="Clothes">Clothes</option>
             <option value="Furniture">Furniture</option>
             <option value="Technology">Technology</option>
+            <option value="Other">Other</option>
             <option value="asc">Price: Low to High</option>
             <option value="desc">Price: High to Low</option>
           </select>

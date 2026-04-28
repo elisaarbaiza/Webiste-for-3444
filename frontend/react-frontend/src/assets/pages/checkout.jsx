@@ -35,23 +35,32 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
-    fetch("/api/cart", { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!Array.isArray(data) || data.length === 0) {
+    const loadCart = async () => {
+      try {
+        const res = await fetch("/api/cart", {
+          credentials: "include",
+        });
+        if (!res.ok) {
+          throw new Error("Could not load cart.");
+        }
+        const parsed = await res.json();
+        if (parsed.length === 0) {
+          setOrderItems([]);
           setCartEmpty(true);
         } else {
-          setOrderItems(data.map((item) => ({
-            id: item.id,
-            name: item.title,
-            price: parseFloat(item.price),
-            quantity: item.quantity,
-          })));
+          setOrderItems(parsed);
+          setCartEmpty(false);
         }
-      })
-      .catch(() => setCartEmpty(true));
+      } catch {
+        setOrderItems([]);
+        setCartEmpty(true);
+      }
+    };
+
+    loadCart();
   }, []);
 
   const orderTotal = orderItems.reduce(
@@ -90,11 +99,33 @@ export default function Checkout() {
     }
 
     setLoading(true);
+    setSubmitError("");
     try {
-      await new Promise((r) => setTimeout(r, 800));
+      const selectedLocation = MEETUP_LOCATIONS.find((l) => l.value === form.meetupLocation);
+      const selectedPayment = PAYMENT_METHODS.find((m) => m.value === form.paymentMethod);
+
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          ...form,
+          meetupLocationLabel: selectedLocation?.label || form.meetupLocation,
+          paymentMethodLabel:
+            form.paymentMethod === "other"
+              ? form.otherPayment
+              : selectedPayment?.label || form.paymentMethod,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to place order.");
+      }
+
       setSubmitted(true);
     } catch (err) {
-      alert("Something went wrong placing your order. Please try again.");
+      setSubmitError(err.message || "Something went wrong placing your order. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -131,6 +162,9 @@ export default function Checkout() {
       </div>
 
       <div style={styles.container}>
+        {submitError && (
+          <div style={styles.submitErrorBox}>{submitError}</div>
+        )}
         <form onSubmit={handleSubmit} noValidate>
           <div style={styles.grid}>
             <div>
@@ -252,7 +286,7 @@ export default function Checkout() {
                     ) : orderItems.map((item) => (
                       <tr key={item.id}>
                         <td style={styles.td}>
-                          {item.name}{" "}
+                          {item.title}{" "}
                           <strong style={{ margin: "0 4px" }}>×</strong>{" "}
                           {item.quantity}
                         </td>
@@ -477,6 +511,15 @@ const styles = {
     fontWeight: 700,
     letterSpacing: 0.5,
     transition: "background 0.2s",
+  },
+  submitErrorBox: {
+    marginBottom: 16,
+    border: "1px solid #ef4444",
+    color: "#b91c1c",
+    background: "#fef2f2",
+    borderRadius: 8,
+    padding: "10px 12px",
+    fontSize: 14,
   },
   successWrapper: {
     minHeight: "100vh",

@@ -53,6 +53,25 @@
       color: #2f5d50;
     }
 
+    .nav-icon-link {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .message-unread-dot {
+      display: none;
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #dc3545;
+      border: 2px solid #3b5d50;
+    }
+
   </style>
 </head>
   <body>
@@ -83,9 +102,14 @@
 
 					<!-- CTA Buttons -->
 					<ul class="custom-navbar-cta navbar-nav mb-2 mb-md-0 ms-5">
-						<li id="nav-messages" style="display: none;"><a class="nav-link" href="/messages"><img src="message.png" alt="Messages"></a></li>
+						<li id="nav-messages" style="display: none;">
+              <a class="nav-link nav-icon-link" href="/messages">
+                <img src="message.png" alt="Messages">
+                <span id="message-unread-dot" class="message-unread-dot" aria-hidden="true"></span>
+              </a>
+            </li>
 						<li><a class="btn btn-secondary" id="nav-profile" href="/login" style="padding: 8px 20px; font-size: 14px; margin-top: 3px;">Log In / Signup</a></li>
-						<li id="nav-cart" style="display: none;"><a class="nav-link" href="/cart"><img src="cart.svg" alt="Cart"></a></li>
+						<li id="nav-cart" style="display: none;"><a class="nav-link" href="/cart"><img src="newcart.png" alt="Cart"></a></li>
 					</ul>
 				</div>
 			</div>
@@ -113,8 +137,9 @@
 
       // Check auth state to update CTA buttons
       fetch("http://localhost:5000/api/me", { credentials: "include" })
-        .then(res => {
+        .then(async res => {
           if (res.ok) {
+            const me = await res.json();
             document.getElementById('nav-favorites').style.display = '';
             document.getElementById('nav-sell').style.display = '';
             document.getElementById('nav-messages').style.display = '';
@@ -124,6 +149,27 @@
             navProfile.className = 'nav-link';
             navProfile.removeAttribute('style');
             navProfile.innerHTML = '<img src="user.svg" alt="Profile">';
+
+            const unreadDot = document.getElementById("message-unread-dot");
+            const updateUnreadIndicator = async () => {
+              try {
+                const contactsRes = await fetch("http://localhost:5000/api/chat/contacts", {
+                  credentials: "include",
+                });
+                if (!contactsRes.ok) {
+                  unreadDot.style.display = "none";
+                  return;
+                }
+                const contacts = await contactsRes.json();
+                const hasUnread = contacts.some((contact) => Number(contact.unreadCount) > 0);
+                unreadDot.style.display = hasUnread ? "block" : "none";
+              } catch (_err) {
+                unreadDot.style.display = "none";
+              }
+            };
+
+            updateUnreadIndicator();
+            window.setInterval(updateUnreadIndicator, 15000);
           }
         })
         .catch(err => console.error("Error checking auth status:", err));
@@ -175,9 +221,9 @@
 						<p class="mb-4">We work hard to provide college students with a safe and affordable platform to buy and sell academic materials during their journey in school.</p>
 
 						<ul class="list-unstyled custom-social">
-							<li><a href="#"><span class="fa fa-brands fa-twitter"></span></a></li>
-							<li><a href="#"><span class="fa fa-brands fa-instagram"></span></a></li>
-							<li><a href="#"><span class="fa fa-brands fa-linkedin"></span></a></li>
+							<li><a href="https://example.com/"><span class="fa fa-brands fa-twitter"></span></a></li>
+							<li><a href="https://example.com/"><span class="fa fa-brands fa-instagram"></span></a></li>
+							<li><a href="https://example.com/"><span class="fa fa-brands fa-linkedin"></span></a></li>
 						</ul>
 					</div>
 
@@ -201,8 +247,8 @@
 
 							<div class="col-6 col-sm-6 col-md-3">
 								<ul class="list-unstyled">
-									<li><a href="shop.html">Shop</a></li>
-									<li><a href="favorites.html">Favorites</a></li>
+									<li><a href="/shop">Shop</a></li>
+									<li><a href="/favorites">Favorites</a></li>
 								</ul>
 							</div>
 						</div>
@@ -217,8 +263,8 @@
 
 						<div class="col-lg-6 text-center text-lg-end">
 							<ul class="list-unstyled d-inline-flex ms-auto">
-								<li class="me-4"><a href="#">Terms &amp; Conditions</a></li>
-								<li><a href="#">Privacy Policy</a></li>
+								<li class="me-4"><a href="https://example.com/">Terms &amp; Conditions</a></li>
+								<li><a href="https://example.com/">Privacy Policy</a></li>
 							</ul>
 						</div>
 

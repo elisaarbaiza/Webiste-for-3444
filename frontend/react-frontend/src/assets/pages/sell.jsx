@@ -244,7 +244,7 @@ function Sell() {
                       <p className="text-muted small mb-0">Seller: {item.seller_username || "Unknown"}</p>
                       <div className="mt-2">
                         {item.is_sold ? (
-                          <span className="badge bg-secondary">Sold</span>
+                          <span className="badge bg-secondary">SOLD</span>
                         ) : (
                           <span className="badge bg-success">Active</span>
                         )}
